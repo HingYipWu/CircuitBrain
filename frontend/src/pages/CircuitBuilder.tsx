@@ -42,6 +42,8 @@ export const CircuitBuilder: React.FC = () => {
   const [selectedCompIds, setSelectedCompIds] = useState<Set<number>>(new Set());
   const [contextMenuComp, setContextMenuComp] = useState<number | null>(null);
   const [simResults, setSimResults] = useState<Record<string, ComponentResult> | null>(null);
+  const [editingCompId, setEditingCompId] = useState<number | null>(null);
+  const [editingValue, setEditingValue] = useState<string>('');
   const nextCompId = useRef(3);
   const nextWireId = useRef(0);
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -312,6 +314,40 @@ export const CircuitBuilder: React.FC = () => {
     setWireStart(null);
     setFeedback('Cleared all');
     setTimeout(() => setFeedback('Ready'), 2000);
+  };
+
+  const startEditingValue = (compId: number, currentValue: number) => {
+    setEditingCompId(compId);
+    setEditingValue(String(currentValue));
+  };
+
+  const saveComponentValue = () => {
+    if (editingCompId === null) return;
+    const newValue = parseFloat(editingValue);
+    if (isNaN(newValue) || newValue < 0) {
+      setFeedback('Invalid value');
+      setTimeout(() => setFeedback('Ready'), 1500);
+      return;
+    }
+
+    setComponents((comps) =>
+      comps.map((c) => {
+        if (c.id === editingCompId) {
+          return { ...c, value: newValue };
+        }
+        return c;
+      })
+    );
+
+    setFeedback(`Updated component value to ${newValue}`);
+    setEditingCompId(null);
+    setEditingValue('');
+    setTimeout(() => setFeedback('Ready'), 1500);
+  };
+
+  const cancelEditing = () => {
+    setEditingCompId(null);
+    setEditingValue('');
   };
 
 
