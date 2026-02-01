@@ -26,6 +26,8 @@ app.use((req, _res, next) => {
 
 app.use(cors({
   origin: (origin, callback) => {
+    // Allow-all shortcut when FRONTEND_URL is set to '*'
+    if (allowedOrigins.includes('*')) return callback(null, true);
     // allow non-browser requests (curl, server-to-server) when origin is undefined
     if (!origin) return callback(null, true);
     if (allowedOrigins.includes(origin)) return callback(null, true);
