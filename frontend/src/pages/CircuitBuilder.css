@@ -1,15 +1,17 @@
 .cb-root {
   display: grid;
-  grid-template-columns: 180px 1fr 300px;
+  grid-template-columns: 180px 1fr 280px;
   gap: 12px;
-  height: calc(100vh - 80px);
+  height: calc(100vh - 100px);
   padding: 12px;
+  background: #fafafa;
 }
 .cb-sidebar {
-  background: #f7f7f7;
-  border: 1px solid #ddd;
-  padding: 10px;
+  background: #f0f2f5;
+  border: 1px solid #d9d9d9;
+  padding: 12px;
   border-radius: 6px;
+  overflow-y: auto;
 }
 .cb-sidebar .tool {
   padding: 8px;
@@ -29,16 +31,32 @@
 
 .cb-canvas {
   background: #ffffff;
-  border: 1px solid #ddd;
+  border: 2px solid #888;
   border-radius: 6px;
   height: 100%;
   position: relative;
+  min-height: 400px;
 }
-.cb-canvas svg { width: 100%; height: 100%; }
+.cb-canvas svg { width: 100%; height: 100%; background: #fff; }
 
-.cb-right { background:#fafafa; border:1px solid #eee; border-radius:6px; padding:10px }
-.result-box { background:#fff; padding:8px; border-radius:4px; border:1px solid #eee; max-height:80vh; overflow:auto }
-.muted { color:#888 }
+.cb-right { 
+  background: #f0f2f5; 
+  border: 1px solid #d9d9d9; 
+  border-radius: 6px; 
+  padding: 12px;
+  overflow-y: auto;
+}
+.result-box { 
+  background: #fff; 
+  padding: 10px; 
+  border-radius: 4px; 
+  border: 1px solid #d9d9d9; 
+  max-height: calc(100% - 50px);
+  overflow: auto;
+  font-size: 11px;
+  font-family: monospace;
+}
+.muted { color: #666; }
 
 .status-badge { padding:6px 8px; border-radius:6px; display:inline-block }
 .status-badge.green { background:#f6ffed; color:#389e0d }

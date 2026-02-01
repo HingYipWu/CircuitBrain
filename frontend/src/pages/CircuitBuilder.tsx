@@ -5,9 +5,43 @@ import './CircuitBuilder.css';
 type NodeItem = { id: number; x: number; y: number; isGround?: boolean };
 type CompItem = { id: number; type: 'resistor' | 'voltage'; n1: number; n2: number; value: number };
 
+// Helper: Draw resistor zigzag between two points
+const drawResistor = (x1: number, y1: number, x2: number, y2: number): string => {
+  const zigWidth = 8;
+  const zigHeight = 40;
+  const steps = 5;
+  const mid = { x: (x1 + x2) / 2, y: (y1 + y2) / 2 };
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  const angle = Math.atan2(dy, dx);
+  
+  let path = `M ${x1} ${y1}`;
+  const segLen = (dist - zigHeight) / 2;
+  const endX = x1 + segLen * Math.cos(angle);
+  const endY = y1 + segLen * Math.sin(angle);
+  
+  path += ` L ${endX} ${endY}`;
+  
+  const perpX = Math.cos(angle + Math.PI / 2);
+  const perpY = Math.sin(angle + Math.PI / 2);
+  let zigX = endX;
+  let zigY = endY;
+  
+  for (let i = 0; i < steps; i++) {
+    zigX += (zigHeight / steps) * Math.cos(angle);
+    zigY += (zigHeight / steps) * Math.sin(angle);
+    const offset = i % 2 === 0 ? zigWidth : -zigWidth;
+    path += ` L ${zigX + offset * perpX} ${zigY + offset * perpY}`;
+  }
+  
+  path += ` L ${x2} ${y2}`;
+  return path;
+};
+
 export const CircuitBuilder: React.FC = () => {
   const [nodes, setNodes] = useState<NodeItem[]>([
-    { id: 0, x: 150, y: 100, isGround: true },
+    { id: 0, x: 150, y: 150, isGround: true },
     { id: 1, x: 350, y: 100 },
   ]);
   const [comps, setComps] = useState<CompItem[]>([
@@ -121,24 +155,153 @@ export const CircuitBuilder: React.FC = () => {
 
       <div className="cb-canvas" onClick={handleCanvasClick}>
         <svg ref={svgRef} width="100%" height="100%">
-          {/* connections */}
+          <defs>
+            <marker id="wire-end" markerWidth="5" markerHeight="5" refX="5" refY="2.5" orient="auto">
+              <polygon points="0 0, 5 2.5, 0 5" fill="#333" />
+            </marker>
+          </defs>
+
+          {/* wires connecting nodes */}
           {comps.map((c) => {
             const n1 = nodes.find(n => n.id === c.n1);
             const n2 = nodes.find(n => n.id === c.n2);
             if (!n1 || !n2) return null;
             return (
-              <g key={c.id}>
-                <line x1={n1.x} y1={n1.y} x2={n2.x} y2={n2.y} stroke="#333" strokeWidth={2} />
-                <text x={(n1.x + n2.x)/2} y={(n1.y + n2.y)/2 - 8} fontSize={12} textAnchor="middle">{c.type==='resistor'?`${c.value}Ω`:`${c.value}V`}</text>
+              <g key={`wire-${c.id}`}>
+                {/* left wire from n1 to component */}
+                <line
+                  x1={n1.x}
+                  y1={n1.y}
+                  x2={(n1.x + n2.x) / 2 - 30}
+                  y2={n1.y}
+                  stroke="#333"
+                  strokeWidth={2}
+                />
+                {/* horizontal segment */}
+                <line
+                  x1={(n1.x + n2.x) / 2 - 30}
+                  y1={n1.y}
+                  x2={(n1.x + n2.x) / 2 - 30}
+                  y2={(n1.y + n2.y) / 2}
+                  stroke="#333"
+                  strokeWidth={2}
+                />
+                {/* component to right wire */}
+                <line
+                  x1={(n1.x + n2.x) / 2 + 30}
+                  y1={(n1.y + n2.y) / 2}
+                  x2={(n1.x + n2.x) / 2 + 30}
+                  y2={n2.y}
+                  stroke="#333"
+                  strokeWidth={2}
+                />
+                <line
+                  x1={(n1.x + n2.x) / 2 + 30}
+                  y1={n2.y}
+                  x2={n2.x}
+                  y2={n2.y}
+                  stroke="#333"
+                  strokeWidth={2}
+                />
+
+                {/* component symbol */}
+                {c.type === 'resistor' && (
+                  <g>
+                    <path
+                      d={`M ${(n1.x + n2.x) / 2 - 30} ${(n1.y + n2.y) / 2} 
+                         Q ${(n1.x + n2.x) / 2 - 20} ${(n1.y + n2.y) / 2 - 8} 
+                           ${(n1.x + n2.x) / 2 - 10} ${(n1.y + n2.y) / 2} 
+                         Q ${(n1.x + n2.x) / 2} ${(n1.y + n2.y) / 2 + 8} 
+                           ${(n1.x + n2.x) / 2 + 10} ${(n1.y + n2.y) / 2} 
+                         Q ${(n1.x + n2.x) / 2 + 20} ${(n1.y + n2.y) / 2 - 8} 
+                           ${(n1.x + n2.x) / 2 + 30} ${(n1.y + n2.y) / 2}`}
+                      fill="none"
+                      stroke="#d9534f"
+                      strokeWidth={3}
+                    />
+                    <text
+                      x={(n1.x + n2.x) / 2}
+                      y={(n1.y + n2.y) / 2 - 18}
+                      fontSize={11}
+                      fontWeight="bold"
+                      fill="#d9534f"
+                      textAnchor="middle"
+                    >
+                      {c.value}Ω
+                    </text>
+                  </g>
+                )}
+
+                {c.type === 'voltage' && (
+                  <g>
+                    <circle
+                      cx={(n1.x + n2.x) / 2}
+                      cy={(n1.y + n2.y) / 2}
+                      r={14}
+                      fill="#fff"
+                      stroke="#5cb85c"
+                      strokeWidth={2}
+                    />
+                    <text
+                      x={(n1.x + n2.x) / 2 - 5}
+                      y={(n1.y + n2.y) / 2 + 5}
+                      fontSize={9}
+                      fontWeight="bold"
+                      fill="#5cb85c"
+                    >
+                      +
+                    </text>
+                    <text
+                      x={(n1.x + n2.x) / 2 + 5}
+                      y={(n1.y + n2.y) / 2 + 5}
+                      fontSize={9}
+                      fontWeight="bold"
+                      fill="#5cb85c"
+                    >
+                      −
+                    </text>
+                    <text
+                      x={(n1.x + n2.x) / 2}
+                      y={(n1.y + n2.y) / 2 - 20}
+                      fontSize={11}
+                      fontWeight="bold"
+                      fill="#5cb85c"
+                      textAnchor="middle"
+                    >
+                      {c.value}V
+                    </text>
+                  </g>
+                )}
               </g>
             );
           })}
 
-          {/* nodes */}
+          {/* ground symbols at ground nodes */}
+          {nodes.map((n) => {
+            if (!n.isGround) return null;
+            return (
+              <g key={`gnd-${n.id}`}>
+                {/* ground triangle */}
+                <polygon
+                  points={`${n.x},${n.y + 15} ${n.x - 12},${n.y + 25} ${n.x + 12},${n.y + 25}`}
+                  fill="none"
+                  stroke="#000"
+                  strokeWidth={2}
+                />
+                {/* ground lines */}
+                <line x1={n.x - 8} y1={n.y + 27} x2={n.x + 8} y2={n.y + 27} stroke="#000" strokeWidth={2} />
+                <line x1={n.x - 5} y1={n.y + 31} x2={n.x + 5} y2={n.y + 31} stroke="#000" strokeWidth={2} />
+              </g>
+            );
+          })}
+
+          {/* node circles (on top) */}
           {nodes.map((n) => (
             <g key={n.id} onClick={(e) => handleNodeClick(n.id, e)} style={{ cursor: 'pointer' }}>
-              <circle cx={n.x} cy={n.y} r={10} fill={n.isGround ? '#ffa' : '#fff'} stroke="#000" />
-              <text x={n.x} y={n.y + 4} fontSize={10} textAnchor="middle">{n.id}</text>
+              <circle cx={n.x} cy={n.y} r={12} fill={n.isGround ? '#ffb300' : '#1890ff'} stroke="#000" strokeWidth={2} />
+              <text x={n.x} y={n.y + 5} fontSize={11} fontWeight="bold" fill="#fff" textAnchor="middle" pointerEvents="none">
+                {n.id}
+              </text>
             </g>
           ))}
         </svg>
