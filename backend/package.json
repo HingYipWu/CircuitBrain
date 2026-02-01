@@ -5,12 +5,13 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "ts-node src/index.ts",
-    "build": "prisma generate && tsc",
+    "build": "tsc --noEmit false",
     "start": "node dist/index.js",
-    "vercel-build": "prisma generate && tsc",
+    "vercel-build": "tsc --noEmit false",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@prisma/client": "^5.8.0",
