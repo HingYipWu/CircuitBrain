@@ -30,6 +30,8 @@ export const CircuitBuilder: React.FC = () => {
   const [mode, setMode] = useState<'select' | 'resistor' | 'voltage' | 'ground' | 'wire'>('select');
   const [feedback, setFeedback] = useState<string>('Ready');
   const [wireStart, setWireStart] = useState<{ compId: number; terminal: 'in' | 'out' } | null>(null);
+  const [draggedCompId, setDraggedCompId] = useState<number | null>(null);
+  const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const nextCompId = useRef(3);
   const nextWireId = useRef(0);
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -77,6 +79,44 @@ export const CircuitBuilder: React.FC = () => {
       setFeedback(`Added ${mode} at (${Math.round(x)}, ${Math.round(y)})`);
       setTimeout(() => setFeedback('Ready'), 2000);
     }
+  };
+
+  const handleComponentMouseDown = (compId: number, e: React.MouseEvent) => {
+    if (mode !== 'select') return;
+    e.stopPropagation();
+    
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    
+    const comp = components.find((c) => c.id === compId);
+    if (!comp) return;
+    
+    const offsetX = e.clientX - rect.left - comp.x;
+    const offsetY = e.clientY - rect.top - comp.y;
+    setDraggedCompId(compId);
+    setDragOffset({ x: offsetX, y: offsetY });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (draggedCompId === null) return;
+    
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    
+    const newX = e.clientX - rect.left - dragOffset.x;
+    const newY = e.clientY - rect.top - dragOffset.y;
+    
+    setComponents((comps) =>
+      comps.map((c) => (c.id === draggedCompId ? { ...c, x: newX, y: newY } : c))
+    );
+  };
+
+  const handleMouseUp = () => {
+    if (draggedCompId !== null) {
+      setFeedback('Component moved');
+      setTimeout(() => setFeedback('Ready'), 1500);
+    }
+    setDraggedCompId(null);
   };
 
   const getComponentTerminals = (comp: Component): { in: { x: number; y: number }; out: { x: number; y: number } } => {
@@ -225,7 +265,7 @@ export const CircuitBuilder: React.FC = () => {
         </div>
       </div>
 
-      <div className="cb-canvas" onClick={handleCanvasClick}>
+      <div className="cb-canvas" onClick={handleCanvasClick} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
         <svg ref={svgRef} width="100%" height="100%">
           {/* wires */}
           {wires.map((wire) => {
@@ -262,10 +302,11 @@ export const CircuitBuilder: React.FC = () => {
             const terminals = getComponentTerminals(comp);
             const w = 40;
             const h = 24;
+            const isDragging = draggedCompId === comp.id;
             return (
-              <g key={comp.id}>
+              <g key={comp.id} onMouseDown={(e) => handleComponentMouseDown(comp.id, e)} style={{ cursor: mode === 'select' ? 'move' : 'default' }}>
                 {/* component body */}
-                <rect x={comp.x - w / 2} y={comp.y - h / 2} width={w} height={h} fill="#fff" stroke="#333" strokeWidth={1} rx={4} />
+                <rect x={comp.x - w / 2} y={comp.y - h / 2} width={w} height={h} fill={isDragging ? '#fff9e6' : '#fff'} stroke={isDragging ? '#faad14' : '#333'} strokeWidth={isDragging ? 2 : 1} rx={4} />
 
                 {/* terminals */}
                 <circle
