@@ -9,8 +9,9 @@ dotenv.config();
 
 const app: Express = express();
 
-// Determine allowed CORS origins (comma-separated list)
-const rawFrontend = process.env.FRONTEND_URL || 'http://localhost:5173';
+// Determine allowed CORS origins (comma-separated list).
+// If `FRONTEND_URL` is not set, default to '*' to allow browser testing.
+const rawFrontend = process.env.FRONTEND_URL ?? '*';
 const allowedOrigins = rawFrontend.split(',').map((s) => s.trim()).filter(Boolean);
 
 // Middleware - allow requests from allowed origins or from localhost/dev tools
