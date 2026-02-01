@@ -19,6 +19,9 @@ export const Navbar: React.FC = () => {
           CircuitBrain
         </Link>
         <div className="navbar-menu">
+          <Link to="/circuit" className="navbar-link">
+            Circuit
+          </Link>
           {isAuthenticated ? (
             <>
               <span className="navbar-user">Welcome, {user?.name}</span>

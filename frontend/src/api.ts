@@ -29,4 +29,8 @@ export const postsAPI = {
   getUserPosts: (userId: number) => api.get(`/posts/user/${userId}`),
 };
 
+export const simulateAPI = {
+  run: (circuit: any) => api.post('/simulate', circuit),
+};
+
 export default api;

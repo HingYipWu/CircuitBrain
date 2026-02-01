@@ -1,0 +1,33 @@
+.circuit-container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.circuit-box {
+  background: white;
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+}
+
+.controls {
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+}
+
+.controls button {
+  padding: 0.6rem 1rem;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.sim-result pre {
+  background: #f7f7f7;
+  padding: 1rem;
+  border-radius: 6px;
+  overflow: auto;
+}
