@@ -20,6 +20,12 @@ type Wire = {
   toTerminal: 'in' | 'out';
 };
 
+type ComponentResult = {
+  voltage: number;
+  current: number;
+  resistance: number;
+};
+
 export const CircuitBuilder: React.FC = () => {
   const [components, setComponents] = useState<Component[]>([
     { id: 0, type: 'resistor', x: 150, y: 100, value: 1000 },
@@ -35,6 +41,7 @@ export const CircuitBuilder: React.FC = () => {
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [selectedCompIds, setSelectedCompIds] = useState<Set<number>>(new Set());
   const [contextMenuComp, setContextMenuComp] = useState<number | null>(null);
+  const [simResults, setSimResults] = useState<Record<string, ComponentResult> | null>(null);
   const nextCompId = useRef(3);
   const nextWireId = useRef(0);
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -261,29 +268,31 @@ export const CircuitBuilder: React.FC = () => {
 
     const resistors: any[] = [];
     const voltageSources: any[] = [];
+    const resistorMap: Record<string, any> = {};
+    const voltageSourceMap: Record<string, any> = {};
 
     for (const comp of components) {
       if (comp.type === 'resistor') {
-        resistors.push({
-          n1: compMap.get(comp.id)!,
-          n2: 0, // simplified: connect to ground
-          value: comp.value,
-        });
+        const n1 = compMap.get(comp.id)!;
+        const n2 = 0;
+        resistors.push({ n1, n2, value: comp.value });
+        resistorMap[`r${comp.id}`] = { compId: comp.id, n1, n2, value: comp.value };
       } else if (comp.type === 'voltage') {
-        voltageSources.push({
-          nPlus: compMap.get(comp.id)!,
-          nMinus: 0, // simplified: connect to ground
-          value: comp.value,
-        });
+        const nPlus = compMap.get(comp.id)!;
+        const nMinus = 0;
+        voltageSources.push({ nPlus, nMinus, value: comp.value });
+        voltageSourceMap[`v${comp.id}`] = { compId: comp.id, nPlus, nMinus, value: comp.value };
       }
     }
 
-    const circuit = { nodeCount: compMap.size, resistors, voltageSources };
+    const circuit = { nodeCount: compMap.size, resistors, voltageSources, resistorMap, voltageSourceMap };
     try {
       const resp = await simulateAPI.run(circuit);
+      setSimResults(resp.data.componentResults || {});
       setFeedback('Simulation complete');
     } catch (err: any) {
       setFeedback(`Error: ${err.message}`);
+      setSimResults(null);
     }
   };
 
@@ -494,11 +503,40 @@ export const CircuitBuilder: React.FC = () => {
       </div>
 
       <div className="cb-right">
-        <h3>Circuit Info</h3>
+        <h3 style={{ color: '#000' }}>Circuit Info</h3>
         <div className="info-box">
-          <p>Components: {components.length}</p>
-          <p>Wires: {wires.length}</p>
+          <p style={{ color: '#000' }}>Components: {components.length}</p>
+          <p style={{ color: '#000' }}>Wires: {wires.length}</p>
         </div>
+        
+        {selectedCompIds.size === 1 && simResults && (() => {
+          const compId = Array.from(selectedCompIds)[0];
+          const comp = components.find((c) => c.id === compId);
+          if (!comp) return null;
+          
+          const resultKey = comp.type === 'resistor' ? `resistor_${compId}` : comp.type === 'voltage' ? `voltage_${compId}` : null;
+          const result = resultKey ? simResults[resultKey] : null;
+          
+          return result ? (
+            <div style={{ marginTop: '12px', padding: '10px', backgroundColor: '#e6f7ff', borderRadius: '4px', border: '1px solid #91d5ff' }}>
+              <h4 style={{ color: '#000', marginBottom: '8px' }}>
+                {comp.type.toUpperCase()} - Component {compId}
+              </h4>
+              <p style={{ color: '#000', margin: '4px 0', fontSize: '12px' }}>
+                <strong>Voltage:</strong> {result.voltage.toFixed(3)} V
+              </p>
+              <p style={{ color: '#000', margin: '4px 0', fontSize: '12px' }}>
+                <strong>Current:</strong> {result.current.toFixed(6)} A ({(result.current * 1000).toFixed(3)} mA)
+              </p>
+              <p style={{ color: '#000', margin: '4px 0', fontSize: '12px' }}>
+                <strong>Resistance:</strong> {result.resistance.toFixed(2)} Ω
+              </p>
+              <p style={{ color: '#000', margin: '4px 0', fontSize: '12px' }}>
+                <strong>Power:</strong> {(result.voltage * result.current).toFixed(6)} W
+              </p>
+            </div>
+          ) : null;
+        })()}
       </div>
     </div>
   );

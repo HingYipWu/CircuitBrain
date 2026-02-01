@@ -19,6 +19,8 @@ interface CircuitPayload {
   nodeCount: number; // include ground as node 0
   resistors?: Resistor[];
   voltageSources?: VoltageSource[];
+  resistorMap?: Record<string, { compId: number; n1: number; n2: number; value: number }>;
+  voltageSourceMap?: Record<string, { compId: number; nPlus: number; nMinus: number; value: number }>;
 }
 
 // Helper: solve linear system Ax = b via Gaussian elimination with partial pivoting
@@ -133,10 +135,55 @@ router.post('/', (req: Request<any, any, CircuitPayload>, res: Response) => {
       sourceCurrents[`i_vs${k}`] = x[N + k];
     }
 
-    res.json({ voltages, sourceCurrents });
+    // Calculate component-level results
+    const componentResults = calculateComponentResults(voltages, sourceCurrents, payload);
+
+    res.json({ voltages, sourceCurrents, componentResults });
   } catch (error) {
     res.status(500).json({ error: 'Simulation failed', details: String(error) });
   }
 });
+
+// Helper to calculate component currents and voltages
+function calculateComponentResults(
+  voltages: Record<string, number>,
+  sourceCurrents: Record<string, number>,
+  payload: CircuitPayload
+): Record<string, { voltage: number; current: number; resistance: number }> {
+  const results: Record<string, { voltage: number; current: number; resistance: number }> = {};
+
+  // Process resistors
+  if (payload.resistorMap) {
+    for (const [key, rdata] of Object.entries(payload.resistorMap)) {
+      const v1 = voltages[`n${rdata.n1}`] || 0;
+      const v2 = voltages[`n${rdata.n2}`] || 0;
+      const vDrop = v1 - v2;
+      const current = vDrop / rdata.value;
+      results[`resistor_${rdata.compId}`] = {
+        voltage: Math.abs(vDrop),
+        current: Math.abs(current),
+        resistance: rdata.value,
+      };
+    }
+  }
+
+  // Process voltage sources
+  if (payload.voltageSourceMap) {
+    let vsIdx = 0;
+    for (const [key, vdata] of Object.entries(payload.voltageSourceMap)) {
+      const current = sourceCurrents[`i_vs${vsIdx}`] || 0;
+      const v1 = voltages[`n${vdata.nPlus}`] || 0;
+      const v2 = voltages[`n${vdata.nMinus}`] || 0;
+      const vDrop = v1 - v2;
+      results[`voltage_${vdata.compId}`] = {
+        voltage: Math.abs(vDrop),
+        current: Math.abs(current),
+        resistance: 0, // voltage sources have 0 internal resistance
+      };
+      vsIdx++;
+    }
+  }
+
+  return results;
 
 export default router;
