@@ -19,7 +19,10 @@ router.get('/', async (req: Request, res: Response) => {
     });
     res.json(posts);
   } catch (error) {
-    res.status(500).json({ error: 'Internal server error' });
+    // Log and return error details for debugging
+    // eslint-disable-next-line no-console
+    console.error('[GET /api/posts] error:', error);
+    res.status(500).json({ error: 'Internal server error', details: String(error) });
   }
 });
 
@@ -37,7 +40,9 @@ router.post('/', verifyToken, async (req: AuthRequest, res: Response) => {
     });
     res.status(201).json(post);
   } catch (error) {
-    res.status(500).json({ error: 'Internal server error' });
+    // eslint-disable-next-line no-console
+    console.error('[POST /api/posts] error:', error);
+    res.status(500).json({ error: 'Internal server error', details: String(error) });
   }
 });
 
@@ -51,7 +56,9 @@ router.get('/user/:userId', async (req: Request, res: Response) => {
     });
     res.json(posts);
   } catch (error) {
-    res.status(500).json({ error: 'Internal server error' });
+    // eslint-disable-next-line no-console
+    console.error('[GET /api/posts/user/:userId] error:', error);
+    res.status(500).json({ error: 'Internal server error', details: String(error) });
   }
 });
 
