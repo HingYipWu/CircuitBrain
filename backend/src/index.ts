@@ -1,7 +1,7 @@
 import express, { Express, Request, Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { PrismaClient } from '@prisma/client';
+// Do not instantiate PrismaClient at module load; routes will create clients when needed
 import authRoutes from './routes/auth';
 import postRoutes from './routes/posts';
 import testRoutes from './routes/test';
