@@ -2,340 +2,332 @@ import React, { useState, useRef } from 'react';
 import { simulateAPI } from '../api';
 import './CircuitBuilder.css';
 
-type NodeItem = { id: number; x: number; y: number; isGround?: boolean };
-type CompItem = { id: number; type: 'resistor' | 'voltage'; n1: number; n2: number; value: number };
+// New data model: components are placed on the canvas with positions
+type Component = {
+  id: number;
+  type: 'resistor' | 'voltage' | 'ground';
+  x: number;
+  y: number;
+  value: number; // ohms or volts
+};
 
-// Helper: Draw resistor zigzag between two points
-const drawResistor = (x1: number, y1: number, x2: number, y2: number): string => {
-  const zigWidth = 8;
-  const zigHeight = 40;
-  const steps = 5;
-  const mid = { x: (x1 + x2) / 2, y: (y1 + y2) / 2 };
-  const dx = x2 - x1;
-  const dy = y2 - y1;
-  const dist = Math.sqrt(dx * dx + dy * dy);
-  const angle = Math.atan2(dy, dx);
-  
-  let path = `M ${x1} ${y1}`;
-  const segLen = (dist - zigHeight) / 2;
-  const endX = x1 + segLen * Math.cos(angle);
-  const endY = y1 + segLen * Math.sin(angle);
-  
-  path += ` L ${endX} ${endY}`;
-  
-  const perpX = Math.cos(angle + Math.PI / 2);
-  const perpY = Math.sin(angle + Math.PI / 2);
-  let zigX = endX;
-  let zigY = endY;
-  
-  for (let i = 0; i < steps; i++) {
-    zigX += (zigHeight / steps) * Math.cos(angle);
-    zigY += (zigHeight / steps) * Math.sin(angle);
-    const offset = i % 2 === 0 ? zigWidth : -zigWidth;
-    path += ` L ${zigX + offset * perpX} ${zigY + offset * perpY}`;
-  }
-  
-  path += ` L ${x2} ${y2}`;
-  return path;
+type Wire = {
+  id: number;
+  fromCompId: number;
+  toCompId: number;
+  fromTerminal: 'in' | 'out'; // which terminal of the component
+  toTerminal: 'in' | 'out';
 };
 
 export const CircuitBuilder: React.FC = () => {
-  const [nodes, setNodes] = useState<NodeItem[]>([
-    { id: 0, x: 150, y: 150, isGround: true },
-    { id: 1, x: 350, y: 100 },
+  const [components, setComponents] = useState<Component[]>([
+    { id: 0, type: 'resistor', x: 150, y: 100, value: 1000 },
+    { id: 1, type: 'voltage', x: 350, y: 100, value: 10 },
+    { id: 2, type: 'ground', x: 250, y: 200, value: 0 },
   ]);
-  const [comps, setComps] = useState<CompItem[]>([
-    { id: 0, type: 'resistor', n1: 1, n2: 0, value: 1000 },
-    { id: 1, type: 'voltage', n1: 1, n2: 0, value: 10 },
-  ]);
+  const [wires, setWires] = useState<Wire[]>([]);
 
-  const [mode, setMode] = useState<'select' | 'add-node' | 'resistor' | 'voltage' | 'ground' >('select');
-  const [selectedNode, setSelectedNode] = useState<number | null>(null);
-  const [result, setResult] = useState<any>(null);
-  const [running, setRunning] = useState(false);
+  const [mode, setMode] = useState<'select' | 'resistor' | 'voltage' | 'ground' | 'wire'>('select');
   const [feedback, setFeedback] = useState<string>('Ready');
-  const nextNodeId = useRef(2);
-  const nextCompId = useRef(2);
-
+  const [wireStart, setWireStart] = useState<{ compId: number; terminal: 'in' | 'out' } | null>(null);
+  const nextCompId = useRef(3);
+  const nextWireId = useRef(0);
   const svgRef = useRef<SVGSVGElement | null>(null);
 
-  const addNodeAt = (x: number, y: number) => {
-    const id = nextNodeId.current++;
-    setNodes((s) => [...s, { id, x, y }]);
-    setFeedback(`Added node ${id}`);
-    setTimeout(() => setFeedback('Ready'), 2000);
+  const getModeInstructions = (): string => {
+    switch (mode) {
+      case 'select':
+        return 'Select a tool to begin';
+      case 'resistor':
+        return 'Click on canvas to place resistor';
+      case 'voltage':
+        return 'Click on canvas to place voltage source';
+      case 'ground':
+        return 'Click on canvas to place ground';
+      case 'wire':
+        return wireStart ? 'Click a terminal on another component' : 'Click a component terminal to start wire';
+      default:
+        return '';
+    }
   };
 
   const handleCanvasClick = (e: React.MouseEvent) => {
+    if (mode === 'wire' || mode === 'select') return; // wire tool handled separately
+    
     const rect = svgRef.current?.getBoundingClientRect();
     if (!rect) return;
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    if (mode === 'add-node') {
-      addNodeAt(x, y);
-      return;
-    }
-  };
-
-  const findNodeAtPos = (x: number, y: number) => {
-    return nodes.find((n) => Math.hypot(n.x - x, n.y - y) < 12)?.id ?? null;
-  };
-
-  const handleNodeClick = (id: number, e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    if (mode === 'resistor' || mode === 'voltage') {
-      if (selectedNode == null) {
-        setSelectedNode(id);
-        setFeedback(`Selected node ${id}. Click another node to connect.`);
-      } else if (selectedNode === id) {
-        setFeedback('Cannot connect node to itself');
-        setTimeout(() => setFeedback('Ready'), 2000);
-      } else {
-        const valStr = prompt('Enter value (' + (mode === 'resistor' ? 'ohms' : 'volts') + ')', mode === 'resistor' ? '1000' : '10');
+    if (mode === 'resistor' || mode === 'voltage' || mode === 'ground') {
+      const id = nextCompId.current++;
+      let value = mode === 'resistor' ? 1000 : mode === 'voltage' ? 10 : 0;
+      
+      if (mode === 'resistor' || mode === 'voltage') {
+        const valStr = prompt(`Enter ${mode === 'resistor' ? 'resistance (ohms)' : 'voltage (volts)'}:`, String(value));
         if (valStr !== null) {
-          const val = Number(valStr) || (mode === 'resistor' ? 1000 : 10);
-          const comp = { id: nextCompId.current++, type: mode === 'resistor' ? 'resistor' : 'voltage', n1: selectedNode, n2: id, value: val } as CompItem;
-          setComps((s) => [...s, comp]);
-          setFeedback(`Added ${mode} (${val}${mode === 'resistor' ? 'Ω' : 'V'}) between nodes ${selectedNode} and ${id}`);
-          setTimeout(() => setFeedback('Ready'), 2000);
+          value = Number(valStr) || value;
+        } else {
+          return; // cancelled
         }
-        setSelectedNode(null);
       }
-    } else if (mode === 'ground') {
-      setNodes((s) => s.map((n) => ({ ...n, isGround: n.id === id })));
-      setFeedback(`Node ${id} set as ground`);
+
+      const comp: Component = { id, type: mode as 'resistor' | 'voltage' | 'ground', x, y, value };
+      setComponents((s) => [...s, comp]);
+      setFeedback(`Added ${mode} at (${Math.round(x)}, ${Math.round(y)})`);
       setTimeout(() => setFeedback('Ready'), 2000);
     }
   };
 
+  const getComponentTerminals = (comp: Component): { in: { x: number; y: number }; out: { x: number; y: number } } => {
+    const w = 40;
+    const h = 24;
+    return {
+      in: { x: comp.x - w / 2, y: comp.y },
+      out: { x: comp.x + w / 2, y: comp.y },
+    };
+  };
+
+  const findComponentAtPos = (x: number, y: number): { compId: number; terminal: 'in' | 'out' } | null => {
+    for (const comp of components) {
+      const terminals = getComponentTerminals(comp);
+      const inDist = Math.hypot(terminals.in.x - x, terminals.in.y - y);
+      const outDist = Math.hypot(terminals.out.x - x, terminals.out.y - y);
+      if (inDist < 10) return { compId: comp.id, terminal: 'in' };
+      if (outDist < 10) return { compId: comp.id, terminal: 'out' };
+    }
+    return null;
+  };
+
+  const handleTerminalClick = (compId: number, terminal: 'in' | 'out', e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (mode !== 'wire') return;
+
+    if (!wireStart) {
+      setWireStart({ compId, terminal });
+      setFeedback(`Wire started from component ${compId}`);
+    } else {
+      if (wireStart.compId === compId) {
+        setFeedback('Cannot connect component to itself');
+        setTimeout(() => setFeedback('Ready'), 2000);
+        setWireStart(null);
+        return;
+      }
+
+      const wire: Wire = {
+        id: nextWireId.current++,
+        fromCompId: wireStart.compId,
+        fromTerminal: wireStart.terminal,
+        toCompId: compId,
+        toTerminal: terminal,
+      };
+      setWires((s) => [...s, wire]);
+      setFeedback(`Added wire`);
+      setTimeout(() => setFeedback('Ready'), 2000);
+      setWireStart(null);
+    }
+  };
+
   const buildCircuitAndRun = async () => {
-    if (nodes.length === 0) return;
-    // choose ground node
-    const groundNode = nodes.find((n) => n.isGround)?.id ?? nodes[0].id;
-    // mapping: ground -> 0, others -> 1..N-1
-    const map = new Map<number, number>();
-    map.set(groundNode, 0);
-    let idx = 1;
-    for (const n of nodes) {
-      if (n.id === groundNode) continue;
-      map.set(n.id, idx++);
+    if (components.length === 0) {
+      setFeedback('Add components first');
+      return;
     }
 
-    const resistors = comps.filter(c => c.type === 'resistor').map(c => ({ n1: map.get(c.n1)!, n2: map.get(c.n2)!, value: c.value }));
-    const voltageSources = comps.filter(c => c.type === 'voltage').map(c => ({ nPlus: map.get(c.n1)!, nMinus: map.get(c.n2)!, value: c.value }));
+    // Convert positioned components to nodes and component values
+    // For simplicity: each component gets a node, ground is node 0
+    const groundComps = components.filter((c) => c.type === 'ground');
+    const groundId = groundComps[0]?.id ?? components[0]?.id;
 
-    const circuit = { nodeCount: map.size, resistors, voltageSources };
-    setRunning(true);
-    setResult(null);
+    const compMap = new Map<number, number>();
+    compMap.set(groundId, 0);
+    let nodeIdx = 1;
+    for (const comp of components) {
+      if (comp.id === groundId) continue;
+      compMap.set(comp.id, nodeIdx++);
+    }
+
+    const resistors: any[] = [];
+    const voltageSources: any[] = [];
+
+    for (const comp of components) {
+      if (comp.type === 'resistor') {
+        resistors.push({
+          n1: compMap.get(comp.id)!,
+          n2: 0, // simplified: connect to ground
+          value: comp.value,
+        });
+      } else if (comp.type === 'voltage') {
+        voltageSources.push({
+          nPlus: compMap.get(comp.id)!,
+          nMinus: 0, // simplified: connect to ground
+          value: comp.value,
+        });
+      }
+    }
+
+    const circuit = { nodeCount: compMap.size, resistors, voltageSources };
     try {
       const resp = await simulateAPI.run(circuit);
-      setResult(resp.data);
+      setFeedback('Simulation complete');
     } catch (err: any) {
-      setResult({ error: err.response?.data || err.message });
-    } finally {
-      setRunning(false);
+      setFeedback(`Error: ${err.message}`);
     }
   };
 
   const clearAll = () => {
-    setNodes([]);
-    setComps([]);
-    nextNodeId.current = 0;
-    nextCompId.current = 0;
-    setSelectedNode(null);
+    setComponents([]);
+    setWires([]);
+    nextCompId.current = 3;
+    nextWireId.current = 0;
+    setWireStart(null);
     setFeedback('Cleared all');
     setTimeout(() => setFeedback('Ready'), 2000);
   };
+
+
 
   return (
     <div className="cb-root">
       <div className="cb-sidebar">
         <h3>Tools</h3>
         <div className="mode-status">
-          <div className="status-label">Mode: <strong>{mode.toUpperCase().replace('-', ' ')}</strong></div>
+          <div className="status-label">Mode: <strong>{mode.toUpperCase()}</strong></div>
           <div className="feedback">{feedback}</div>
-          <div className="instructions">
-            {mode === 'select' && 'Select a tool above'}
-            {mode === 'add-node' && 'Click on canvas to add nodes'}
-            {mode === 'resistor' && 'Click two nodes to add a resistor (enter ohms when prompted)'}
-            {mode === 'voltage' && 'Click two nodes to add a voltage source (enter volts when prompted)'}
-            {mode === 'ground' && 'Click a node to set it as ground'}
-          </div>
+          <div className="instructions">{getModeInstructions()}</div>
         </div>
         <hr />
-        <div className={`tool ${mode==='select'?'active':''}`} onClick={() => { setMode('select'); setFeedback('Select mode active'); }}>Select</div>
-        <div className={`tool ${mode==='add-node'?'active':''}`} onClick={() => { setMode('add-node'); setFeedback('Click canvas to add nodes'); }}>Add Node</div>
-        <div className={`tool ${mode==='resistor'?'active':''}`} onClick={() => { setMode('resistor'); setFeedback('Click two nodes for resistor'); }}>Add Resistor</div>
-        <div className={`tool ${mode==='voltage'?'active':''}`} onClick={() => { setMode('voltage'); setFeedback('Click two nodes for voltage'); }}>Add Voltage</div>
-        <div className={`tool ${mode==='ground'?'active':''}`} onClick={() => { setMode('ground'); setFeedback('Click node to set ground'); }}>Set Ground</div>
+        <div className={`tool ${mode === 'select' ? 'active' : ''}`} onClick={() => { setMode('select'); setFeedback('Select mode'); }}>
+          Select
+        </div>
+        <div className={`tool ${mode === 'resistor' ? 'active' : ''}`} onClick={() => { setMode('resistor'); setFeedback('Click canvas to place resistor'); }}>
+          Add Resistor
+        </div>
+        <div className={`tool ${mode === 'voltage' ? 'active' : ''}`} onClick={() => { setMode('voltage'); setFeedback('Click canvas to place voltage'); }}>
+          Add Voltage
+        </div>
+        <div className={`tool ${mode === 'ground' ? 'active' : ''}`} onClick={() => { setMode('ground'); setFeedback('Click canvas to place ground'); }}>
+          Add Ground
+        </div>
+        <div className={`tool ${mode === 'wire' ? 'active' : ''}`} onClick={() => { setMode('wire'); setFeedback('Click terminals to add wire'); setWireStart(null); }}>
+          Add Wire
+        </div>
         <hr />
-        <button onClick={buildCircuitAndRun} disabled={running}>{running ? 'Running...' : 'Run Simulation'}</button>
-        <button onClick={clearAll} className="danger">Clear</button>
+        <button onClick={buildCircuitAndRun}>Run Simulation</button>
+        <button onClick={clearAll} className="danger">
+          Clear
+        </button>
         <hr />
         <div className="legend">
-          <div><span className="legend-resistor"/> Resistor</div>
-          <div><span className="legend-voltage"/> Voltage Source</div>
+          <div><span className="legend-resistor" /> Resistor</div>
+          <div><span className="legend-voltage" /> Voltage</div>
+          <div><span className="legend-ground" /> Ground</div>
         </div>
       </div>
 
       <div className="cb-canvas" onClick={handleCanvasClick}>
         <svg ref={svgRef} width="100%" height="100%">
-          <defs>
-            <marker id="wire-end" markerWidth="5" markerHeight="5" refX="5" refY="2.5" orient="auto">
-              <polygon points="0 0, 5 2.5, 0 5" fill="#333" />
-            </marker>
-          </defs>
-
-          {/* wires connecting nodes */}
-          {comps.map((c) => {
-            const n1 = nodes.find(n => n.id === c.n1);
-            const n2 = nodes.find(n => n.id === c.n2);
-            if (!n1 || !n2) return null;
+          {/* wires */}
+          {wires.map((wire) => {
+            const fromComp = components.find((c) => c.id === wire.fromCompId);
+            const toComp = components.find((c) => c.id === wire.toCompId);
+            if (!fromComp || !toComp) return null;
+            const fromTerminal = getComponentTerminals(fromComp)[wire.fromTerminal];
+            const toTerminal = getComponentTerminals(toComp)[wire.toTerminal];
             return (
-              <g key={`wire-${c.id}`}>
-                {/* left wire from n1 to component */}
-                <line
-                  x1={n1.x}
-                  y1={n1.y}
-                  x2={(n1.x + n2.x) / 2 - 30}
-                  y2={n1.y}
-                  stroke="#333"
-                  strokeWidth={2}
-                />
-                {/* horizontal segment */}
-                <line
-                  x1={(n1.x + n2.x) / 2 - 30}
-                  y1={n1.y}
-                  x2={(n1.x + n2.x) / 2 - 30}
-                  y2={(n1.y + n2.y) / 2}
-                  stroke="#333"
-                  strokeWidth={2}
-                />
-                {/* component to right wire */}
-                <line
-                  x1={(n1.x + n2.x) / 2 + 30}
-                  y1={(n1.y + n2.y) / 2}
-                  x2={(n1.x + n2.x) / 2 + 30}
-                  y2={n2.y}
-                  stroke="#333"
-                  strokeWidth={2}
-                />
-                <line
-                  x1={(n1.x + n2.x) / 2 + 30}
-                  y1={n2.y}
-                  x2={n2.x}
-                  y2={n2.y}
-                  stroke="#333"
-                  strokeWidth={2}
-                />
-
-                {/* component symbol */}
-                {c.type === 'resistor' && (
-                  <g>
-                    <path
-                      d={`M ${(n1.x + n2.x) / 2 - 30} ${(n1.y + n2.y) / 2} 
-                         Q ${(n1.x + n2.x) / 2 - 20} ${(n1.y + n2.y) / 2 - 8} 
-                           ${(n1.x + n2.x) / 2 - 10} ${(n1.y + n2.y) / 2} 
-                         Q ${(n1.x + n2.x) / 2} ${(n1.y + n2.y) / 2 + 8} 
-                           ${(n1.x + n2.x) / 2 + 10} ${(n1.y + n2.y) / 2} 
-                         Q ${(n1.x + n2.x) / 2 + 20} ${(n1.y + n2.y) / 2 - 8} 
-                           ${(n1.x + n2.x) / 2 + 30} ${(n1.y + n2.y) / 2}`}
-                      fill="none"
-                      stroke="#d9534f"
-                      strokeWidth={3}
-                    />
-                    <text
-                      x={(n1.x + n2.x) / 2}
-                      y={(n1.y + n2.y) / 2 - 18}
-                      fontSize={11}
-                      fontWeight="bold"
-                      fill="#000"
-                      textAnchor="middle"
-                    >
-                      {c.value}Ω
-                    </text>
-                  </g>
-                )}
-
-                {c.type === 'voltage' && (
-                  <g>
-                    <circle
-                      cx={(n1.x + n2.x) / 2}
-                      cy={(n1.y + n2.y) / 2}
-                      r={14}
-                      fill="#fff"
-                      stroke="#5cb85c"
-                      strokeWidth={2}
-                    />
-                    <text
-                      x={(n1.x + n2.x) / 2 - 5}
-                      y={(n1.y + n2.y) / 2 + 5}
-                      fontSize={9}
-                      fontWeight="bold"
-                      fill="#000"
-                    >
-                      +
-                    </text>
-                    <text
-                      x={(n1.x + n2.x) / 2 + 5}
-                      y={(n1.y + n2.y) / 2 + 5}
-                      fontSize={9}
-                      fontWeight="bold"
-                      fill="#000"
-                    >
-                      −
-                    </text>
-                    <text
-                      x={(n1.x + n2.x) / 2}
-                      y={(n1.y + n2.y) / 2 - 20}
-                      fontSize={11}
-                      fontWeight="bold"
-                      fill="#000"
-                      textAnchor="middle"
-                    >
-                      {c.value}V
-                    </text>
-                  </g>
-                )}
-              </g>
+              <line
+                key={`wire-${wire.id}`}
+                x1={fromTerminal.x}
+                y1={fromTerminal.y}
+                x2={toTerminal.x}
+                y2={toTerminal.y}
+                stroke="#333"
+                strokeWidth={2}
+              />
             );
           })}
 
-          {/* ground symbols at ground nodes */}
-          {nodes.map((n) => {
-            if (!n.isGround) return null;
+          {/* preview wire while drawing */}
+          {wireStart && (() => {
+            const startComp = components.find((c) => c.id === wireStart.compId);
+            if (!startComp) return null;
+            const startTerm = getComponentTerminals(startComp)[wireStart.terminal];
             return (
-              <g key={`gnd-${n.id}`}>
-                {/* ground triangle */}
-                <polygon
-                  points={`${n.x},${n.y + 15} ${n.x - 12},${n.y + 25} ${n.x + 12},${n.y + 25}`}
-                  fill="none"
+              <line x1={startTerm.x} y1={startTerm.y} x2={startTerm.x} y2={startTerm.y} stroke="#666" strokeWidth={1} strokeDasharray="4" />
+            );
+          })()}
+
+          {/* components */}
+          {components.map((comp) => {
+            const terminals = getComponentTerminals(comp);
+            const w = 40;
+            const h = 24;
+            return (
+              <g key={comp.id}>
+                {/* component body */}
+                <rect x={comp.x - w / 2} y={comp.y - h / 2} width={w} height={h} fill="#fff" stroke="#333" strokeWidth={1} rx={4} />
+
+                {/* terminals */}
+                <circle
+                  cx={terminals.in.x}
+                  cy={terminals.in.y}
+                  r={6}
+                  fill={wireStart?.compId === comp.id && wireStart?.terminal === 'in' ? '#f39c12' : '#666'}
                   stroke="#000"
-                  strokeWidth={2}
+                  strokeWidth={1}
+                  onClick={(e) => handleTerminalClick(comp.id, 'in', e)}
+                  style={{ cursor: 'pointer' }}
                 />
-                {/* ground lines */}
-                <line x1={n.x - 8} y1={n.y + 27} x2={n.x + 8} y2={n.y + 27} stroke="#000" strokeWidth={2} />
-                <line x1={n.x - 5} y1={n.y + 31} x2={n.x + 5} y2={n.y + 31} stroke="#000" strokeWidth={2} />
+                <circle
+                  cx={terminals.out.x}
+                  cy={terminals.out.y}
+                  r={6}
+                  fill={wireStart?.compId === comp.id && wireStart?.terminal === 'out' ? '#f39c12' : '#666'}
+                  stroke="#000"
+                  strokeWidth={1}
+                  onClick={(e) => handleTerminalClick(comp.id, 'out', e)}
+                  style={{ cursor: 'pointer' }}
+                />
+
+                {/* component label and icon */}
+                {comp.type === 'resistor' && (
+                  <>
+                    <text x={comp.x} y={comp.y + 4} fontSize={9} fontWeight="bold" fill="#000" textAnchor="middle" pointerEvents="none">
+                      R
+                    </text>
+                    <text x={comp.x} y={comp.y + 14} fontSize={8} fill="#666" textAnchor="middle" pointerEvents="none">
+                      {comp.value}Ω
+                    </text>
+                  </>
+                )}
+                {comp.type === 'voltage' && (
+                  <>
+                    <text x={comp.x} y={comp.y + 4} fontSize={9} fontWeight="bold" fill="#000" textAnchor="middle" pointerEvents="none">
+                      V
+                    </text>
+                    <text x={comp.x} y={comp.y + 14} fontSize={8} fill="#666" textAnchor="middle" pointerEvents="none">
+                      {comp.value}V
+                    </text>
+                  </>
+                )}
+                {comp.type === 'ground' && (
+                  <>
+                    <polygon points={`${comp.x},${comp.y - 8} ${comp.x - 6},${comp.y + 2} ${comp.x + 6},${comp.y + 2}`} fill="none" stroke="#000" strokeWidth={1} />
+                    <line x1={comp.x - 5} y1={comp.y + 4} x2={comp.x + 5} y2={comp.y + 4} stroke="#000" strokeWidth={1} />
+                  </>
+                )}
               </g>
             );
           })}
-
-          {/* node circles (on top) */}
-          {nodes.map((n) => (
-            <g key={n.id} onClick={(e) => handleNodeClick(n.id, e)} style={{ cursor: 'pointer' }}>
-              <circle cx={n.x} cy={n.y} r={12} fill={n.isGround ? '#ffb300' : '#1890ff'} stroke="#000" strokeWidth={2} />
-              <text x={n.x} y={n.y + 5} fontSize={11} fontWeight="bold" fill="#fff" textAnchor="middle" pointerEvents="none">
-                {n.id}
-              </text>
-            </g>
-          ))}
         </svg>
       </div>
 
       <div className="cb-right">
-        <h3>Simulation Result</h3>
-        {result ? <pre className="result-box">{JSON.stringify(result, null, 2)}</pre> : <div className="muted">No result yet</div>}
+        <h3>Circuit Info</h3>
+        <div className="info-box">
+          <p>Components: {components.length}</p>
+          <p>Wires: {wires.length}</p>
+        </div>
       </div>
     </div>
   );
