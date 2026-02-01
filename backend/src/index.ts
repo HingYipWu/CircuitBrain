@@ -17,16 +17,31 @@ const rawFrontend = process.env.FRONTEND_URL || 'http://localhost:5173';
 const allowedOrigins = rawFrontend.split(',').map((s) => s.trim()).filter(Boolean);
 
 // Middleware - allow requests from allowed origins or from localhost/dev tools
+// Log incoming requests for debugging
+app.use((req, _res, next) => {
+  // eslint-disable-next-line no-console
+  console.log(`[request] ${req.method} ${req.url} - origin: ${req.headers.origin}`);
+  next();
+});
+
 app.use(cors({
   origin: (origin, callback) => {
     // allow non-browser requests (curl, server-to-server) when origin is undefined
     if (!origin) return callback(null, true);
     if (allowedOrigins.includes(origin)) return callback(null, true);
     if (origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1')) return callback(null, true);
-    return callback(new Error('CORS policy: origin not allowed'), false);
+    // Deny without throwing to avoid 500s; browser will enforce CORS.
+    return callback(null, false);
   },
   credentials: true,
 }));
+
+// Generic error handler to log errors and return JSON
+app.use((err: any, _req: Request, res: Response, _next: any) => {
+  // eslint-disable-next-line no-console
+  console.error('[error]', err && err.stack ? err.stack : err);
+  res.status(500).json({ error: 'Internal server error', details: String(err && err.message ? err.message : err) });
+});
 app.use(express.json());
 
 // Routes

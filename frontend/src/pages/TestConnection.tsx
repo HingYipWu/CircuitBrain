@@ -12,9 +12,16 @@ export const TestConnection: React.FC = () => {
   const [directStatus, setDirectStatus] = useState<string>('');
 
   useEffect(() => {
-    // Display the API URL being used
-    const url = import.meta.env.VITE_API_URL || '/api';
-    setApiUrl(url);
+    // Display the API URL being used (from env and axios instance)
+    const envUrl = import.meta.env.VITE_API_URL || '/api';
+    setApiUrl(envUrl);
+    try {
+      // @ts-ignore
+      const axiosBase = api.defaults?.baseURL || '';
+      if (axiosBase) setApiUrl(axiosBase);
+    } catch (e) {
+      // ignore
+    }
 
     // Test health endpoint
     const testHealth = async () => {
