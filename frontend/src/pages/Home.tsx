@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { postsAPI } from '../api';
+import api, { postsAPI } from '../api';
 import './Home.css';
 
 interface Post {
@@ -13,6 +13,8 @@ interface Post {
 export const Home: React.FC = () => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  const [backendStatus, setBackendStatus] = useState<string>('Checking...');
+  const [backendOk, setBackendOk] = useState<boolean | null>(null);
 
   useEffect(() => {
     const fetchPosts = async () => {
@@ -20,13 +22,31 @@ export const Home: React.FC = () => {
         const response = await postsAPI.getAll();
         setPosts(response.data);
       } catch (error) {
-        console.error('Failed to fetch posts', error);
-      } finally {
-        setLoading(false);
+        // ignore posts error for status check
+      }
+    };
+
+    const checkBackend = async () => {
+      try {
+        const res = await api.get('/test/health');
+        if (res?.data?.status) {
+          setBackendStatus('Backend connected');
+          setBackendOk(true);
+        } else {
+          setBackendStatus('Backend responded');
+          setBackendOk(true);
+        }
+      } catch (error: any) {
+        setBackendStatus('Backend not reachable');
+        setBackendOk(false);
       }
     };
 
     fetchPosts();
+    checkBackend();
+    setLoading(false);
+    };
+
   }, []);
 
   if (loading) {
@@ -35,6 +55,11 @@ export const Home: React.FC = () => {
 
   return (
     <div className="home-container">
+      <div className="backend-status-row">
+        <span className={`backend-status ${backendOk === null ? 'checking' : backendOk ? 'ok' : 'down'}`}>
+          {backendStatus}
+        </span>
+      </div>
       <div className="home-header">
         <h1>Welcome to CircuitBrain</h1>
         <p>Share your thoughts and ideas with the community</p>

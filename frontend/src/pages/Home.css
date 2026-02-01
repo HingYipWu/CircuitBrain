@@ -4,6 +4,37 @@
   padding: 2rem;
 }
 
+.backend-status-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 1rem;
+}
+
+.backend-status {
+  padding: 0.35rem 0.6rem;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.backend-status.ok {
+  background: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.backend-status.down {
+  background: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+.backend-status.checking {
+  background: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffeaa7;
+}
+
 .home-header {
   text-align: center;
   margin-bottom: 3rem;
