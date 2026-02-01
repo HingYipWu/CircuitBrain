@@ -15,5 +15,6 @@
   "env": {
     "PORT": "0",
     "NODE_ENV": "production"
-  }
+  },
+  "buildCommand": "npm run build"
 }
