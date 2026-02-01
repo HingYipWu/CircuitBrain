@@ -669,7 +669,60 @@ export const CircuitBuilder: React.FC = () => {
           <div style={{ marginTop: '12px', padding: '10px', backgroundColor: '#e6f7ff', borderRadius: '4px', border: '1px solid #91d5ff' }}>
             <h4 style={{ color: '#000', marginBottom: '8px', marginTop: '0' }}>⚡ Simulation Results</h4>
             
+            {/* Selected Component Details Display */}
+            {selectedCompIds.size === 1 && (() => {
+              const compId = Array.from(selectedCompIds)[0];
+              const comp = components.find((c) => c.id === compId);
+              if (!comp) return null;
+              
+              const resultKey = comp.type === 'resistor' ? `resistor_${compId}` : comp.type === 'voltage' ? `voltage_${compId}` : null;
+              const result = resultKey ? simResults[resultKey] : null;
+              
+              if (!result) return null;
+              
+              const typeLabel = comp.type === 'resistor' ? 'Resistor' : 'Voltage Source';
+              
+              return (
+                <div
+                  style={{
+                    marginBottom: '12px',
+                    padding: '12px',
+                    backgroundColor: '#fff9e6',
+                    borderRadius: '6px',
+                    border: '2px solid #faad14',
+                    fontFamily: 'monospace',
+                  }}
+                >
+                  <p style={{ color: '#000', margin: '0 0 8px 0', fontSize: '13px', fontWeight: 'bold', textAlign: 'center' }}>
+                    ► SELECTED: {typeLabel} {compId}
+                  </p>
+                  <hr style={{ borderColor: '#faad14', margin: '6px 0' }} />
+                  <p style={{ color: '#000', margin: '6px 0', fontSize: '12px' }}>
+                    Voltage Drop (V):  <span style={{ fontWeight: 'bold', color: '#1890ff' }}>{result.voltage.toFixed(4)}</span>
+                  </p>
+                  <p style={{ color: '#000', margin: '6px 0', fontSize: '12px' }}>
+                    Current (A):       <span style={{ fontWeight: 'bold', color: '#1890ff' }}>{result.current.toFixed(6)}</span>
+                  </p>
+                  <p style={{ color: '#000', margin: '6px 0', fontSize: '12px' }}>
+                    Current (mA):      <span style={{ fontWeight: 'bold', color: '#1890ff' }}>{(result.current * 1000).toFixed(4)}</span>
+                  </p>
+                  <p style={{ color: '#000', margin: '6px 0', fontSize: '12px' }}>
+                    Resistance (Ω):    <span style={{ fontWeight: 'bold', color: '#1890ff' }}>{result.resistance.toFixed(2)}</span>
+                  </p>
+                  <p style={{ color: '#000', margin: '6px 0', fontSize: '12px' }}>
+                    Power (W):         <span style={{ fontWeight: 'bold', color: '#1890ff' }}>{(result.voltage * result.current).toFixed(6)}</span>
+                  </p>
+                  <hr style={{ borderColor: '#faad14', margin: '6px 0' }} />
+                  <p style={{ color: '#666', margin: '4px 0', fontSize: '10px', fontStyle: 'italic' }}>
+                    Component position: ({Math.round(comp.x)}, {Math.round(comp.y)})
+                  </p>
+                </div>
+              );
+            })()}
+            
+            {/* Summary of All Components */}
             <div>
+              <p style={{ color: '#000', margin: '8px 0 6px 0', fontSize: '11px', fontWeight: 'bold' }}>All Components:</p>
               {Array.from(Object.entries(simResults)).map(([key, result]) => {
                 // Extract component ID from key (e.g., "resistor_0" -> 0)
                 const compId = parseInt(key.split('_')[1]);
@@ -681,9 +734,9 @@ export const CircuitBuilder: React.FC = () => {
                   <div
                     key={key}
                     style={{
-                      marginBottom: '8px',
-                      paddingBottom: '8px',
-                      paddingTop: '8px',
+                      marginBottom: '6px',
+                      paddingBottom: '6px',
+                      paddingTop: '6px',
                       paddingLeft: '8px',
                       paddingRight: '8px',
                       borderBottom: '1px solid #b3d8ff',
@@ -692,20 +745,11 @@ export const CircuitBuilder: React.FC = () => {
                       borderRadius: '4px',
                     }}
                   >
-                    <p style={{ color: '#000', margin: '2px 0', fontSize: '12px', fontWeight: 'bold' }}>
+                    <p style={{ color: '#000', margin: '2px 0', fontSize: '11px', fontWeight: 'bold' }}>
                       {typeLabel} {compId} {isSelected && '← Selected'}
                     </p>
-                    <p style={{ color: '#000', margin: '2px 0', fontSize: '11px' }}>
-                      <strong>Voltage Drop:</strong> {result.voltage.toFixed(4)} V
-                    </p>
-                    <p style={{ color: '#000', margin: '2px 0', fontSize: '11px' }}>
-                      <strong>Current:</strong> {result.current.toFixed(6)} A ({(result.current * 1000).toFixed(4)} mA)
-                    </p>
-                    <p style={{ color: '#000', margin: '2px 0', fontSize: '11px' }}>
-                      <strong>Resistance:</strong> {result.resistance.toFixed(2)} Ω
-                    </p>
-                    <p style={{ color: '#000', margin: '2px 0', fontSize: '11px' }}>
-                      <strong>Power:</strong> {(result.voltage * result.current).toFixed(6)} W
+                    <p style={{ color: '#666', margin: '2px 0', fontSize: '10px' }}>
+                      V: {result.voltage.toFixed(4)}V | I: {(result.current * 1000).toFixed(3)}mA | R: {result.resistance.toFixed(2)}Ω | P: {(result.voltage * result.current).toFixed(4)}W
                     </p>
                   </div>
                 );
