@@ -9,6 +9,7 @@ export const TestConnection: React.FC = () => {
   const [echoResponse, setEchoResponse] = useState<string>('');
   const [echoLoading, setEchoLoading] = useState<boolean>(false);
   const [apiUrl, setApiUrl] = useState<string>('');
+  const [directStatus, setDirectStatus] = useState<string>('');
 
   useEffect(() => {
     // Display the API URL being used
@@ -27,7 +28,24 @@ export const TestConnection: React.FC = () => {
       }
     };
 
+    // Also try a direct fetch to the deployed backend to isolate baseURL/CORS problems
+    const testDirect = async () => {
+      const directUrl = 'https://circuit-brain.vercel.app/api/test/health';
+      try {
+        const r = await fetch(directUrl, { method: 'GET' });
+        if (!r.ok) {
+          setDirectStatus(`Direct fetch failed: ${r.status} ${r.statusText}`);
+          return;
+        }
+        const data = await r.json();
+        setDirectStatus(`Direct OK: ${data.status}`);
+      } catch (err: any) {
+        setDirectStatus(`Direct fetch error: ${err.message}`);
+      }
+    };
+
     testHealth();
+    testDirect();
   }, []);
 
   const handleEcho = async (e: React.FormEvent) => {
@@ -54,6 +72,7 @@ export const TestConnection: React.FC = () => {
           <h3>Backend Health Check</h3>
           <div className={`status-badge ${healthColor}`}>{healthStatus}</div>
           <p className="api-url">API URL: <code>{apiUrl}</code></p>
+          <p className="api-url">Direct fetch: <code>{directStatus}</code></p>
         </div>
 
         <div className="test-section">
