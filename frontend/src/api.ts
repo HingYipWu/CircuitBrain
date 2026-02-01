@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-let API_URL = import.meta.env.VITE_API_URL || '/api'
+// Default to deployed backend if no env var is set
+let API_URL = import.meta.env.VITE_API_URL || 'https://circuit-brain.vercel.app'
 
 // If user provided a backend host like https://... and didn't include /api, append it
 if (API_URL.startsWith('http') && !API_URL.endsWith('/api')) {
