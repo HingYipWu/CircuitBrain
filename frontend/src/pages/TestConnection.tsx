@@ -10,6 +10,7 @@ export const TestConnection: React.FC = () => {
   const [echoLoading, setEchoLoading] = useState<boolean>(false);
   const [apiUrl, setApiUrl] = useState<string>('');
   const [directStatus, setDirectStatus] = useState<string>('');
+  const [axiosUrl, setAxiosUrl] = useState<string>('');
 
   useEffect(() => {
     // Display the API URL being used (from env and axios instance)
@@ -19,6 +20,7 @@ export const TestConnection: React.FC = () => {
       // @ts-ignore
       const axiosBase = api.defaults?.baseURL || '';
       if (axiosBase) setApiUrl(axiosBase);
+      if (axiosBase) setAxiosUrl(axiosBase.replace(/\/$/, '') + '/test/health');
     } catch (e) {
       // ignore
     }
@@ -30,7 +32,12 @@ export const TestConnection: React.FC = () => {
         setHealthStatus(`✅ Connected! Status: ${response.data.status}`);
         setHealthColor('green');
       } catch (error: any) {
-        setHealthStatus(`❌ Connection failed: ${error.message}`);
+        const status = error.response?.status;
+        const data = error.response?.data;
+        let msg = `❌ Connection failed: ${error.message}`;
+        if (status) msg += ` (${status})`;
+        if (data) msg += ` - ${JSON.stringify(data)}`;
+        setHealthStatus(msg);
         setHealthColor('red');
       }
     };
@@ -79,6 +86,7 @@ export const TestConnection: React.FC = () => {
           <h3>Backend Health Check</h3>
           <div className={`status-badge ${healthColor}`}>{healthStatus}</div>
           <p className="api-url">API URL: <code>{apiUrl}</code></p>
+          <p className="api-url">Axios request URL: <code>{axiosUrl}</code></p>
           <p className="api-url">Direct fetch: <code>{directStatus}</code></p>
         </div>
 
