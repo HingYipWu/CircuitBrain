@@ -45,7 +45,6 @@ export const Home: React.FC = () => {
     fetchPosts();
     checkBackend();
     setLoading(false);
-    };
 
   }, []);
 
