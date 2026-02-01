@@ -53,6 +53,7 @@ export const CircuitBuilder: React.FC = () => {
   const [selectedNode, setSelectedNode] = useState<number | null>(null);
   const [result, setResult] = useState<any>(null);
   const [running, setRunning] = useState(false);
+  const [feedback, setFeedback] = useState<string>('Ready');
   const nextNodeId = useRef(2);
   const nextCompId = useRef(2);
 
@@ -61,6 +62,8 @@ export const CircuitBuilder: React.FC = () => {
   const addNodeAt = (x: number, y: number) => {
     const id = nextNodeId.current++;
     setNodes((s) => [...s, { id, x, y }]);
+    setFeedback(`Added node ${id}`);
+    setTimeout(() => setFeedback('Ready'), 2000);
   };
 
   const handleCanvasClick = (e: React.MouseEvent) => {
@@ -84,17 +87,25 @@ export const CircuitBuilder: React.FC = () => {
     if (mode === 'resistor' || mode === 'voltage') {
       if (selectedNode == null) {
         setSelectedNode(id);
+        setFeedback(`Selected node ${id}. Click another node to connect.`);
       } else if (selectedNode === id) {
-        // ignore
+        setFeedback('Cannot connect node to itself');
+        setTimeout(() => setFeedback('Ready'), 2000);
       } else {
         const valStr = prompt('Enter value (' + (mode === 'resistor' ? 'ohms' : 'volts') + ')', mode === 'resistor' ? '1000' : '10');
-        const val = valStr ? Number(valStr) : (mode === 'resistor' ? 1000 : 10);
-        const comp = { id: nextCompId.current++, type: mode === 'resistor' ? 'resistor' : 'voltage', n1: selectedNode, n2: id, value: val } as CompItem;
-        setComps((s) => [...s, comp]);
+        if (valStr !== null) {
+          const val = Number(valStr) || (mode === 'resistor' ? 1000 : 10);
+          const comp = { id: nextCompId.current++, type: mode === 'resistor' ? 'resistor' : 'voltage', n1: selectedNode, n2: id, value: val } as CompItem;
+          setComps((s) => [...s, comp]);
+          setFeedback(`Added ${mode} (${val}${mode === 'resistor' ? 'Ω' : 'V'}) between nodes ${selectedNode} and ${id}`);
+          setTimeout(() => setFeedback('Ready'), 2000);
+        }
         setSelectedNode(null);
       }
     } else if (mode === 'ground') {
       setNodes((s) => s.map((n) => ({ ...n, isGround: n.id === id })));
+      setFeedback(`Node ${id} set as ground`);
+      setTimeout(() => setFeedback('Ready'), 2000);
     }
   };
 
@@ -132,17 +143,32 @@ export const CircuitBuilder: React.FC = () => {
     setComps([]);
     nextNodeId.current = 0;
     nextCompId.current = 0;
+    setSelectedNode(null);
+    setFeedback('Cleared all');
+    setTimeout(() => setFeedback('Ready'), 2000);
   };
 
   return (
     <div className="cb-root">
       <div className="cb-sidebar">
         <h3>Tools</h3>
-        <div className={`tool ${mode==='select'?'active':''}`} onClick={() => setMode('select')}>Select</div>
-        <div className={`tool ${mode==='add-node'?'active':''}`} onClick={() => setMode('add-node')}>Add Node</div>
-        <div className={`tool ${mode==='resistor'?'active':''}`} onClick={() => setMode('resistor')}>Add Resistor</div>
-        <div className={`tool ${mode==='voltage'?'active':''}`} onClick={() => setMode('voltage')}>Add Voltage</div>
-        <div className={`tool ${mode==='ground'?'active':''}`} onClick={() => setMode('ground')}>Set Ground</div>
+        <div className="mode-status">
+          <div className="status-label">Mode: <strong>{mode.toUpperCase().replace('-', ' ')}</strong></div>
+          <div className="feedback">{feedback}</div>
+          <div className="instructions">
+            {mode === 'select' && 'Select a tool above'}
+            {mode === 'add-node' && 'Click on canvas to add nodes'}
+            {mode === 'resistor' && 'Click two nodes to add a resistor (enter ohms when prompted)'}
+            {mode === 'voltage' && 'Click two nodes to add a voltage source (enter volts when prompted)'}
+            {mode === 'ground' && 'Click a node to set it as ground'}
+          </div>
+        </div>
+        <hr />
+        <div className={`tool ${mode==='select'?'active':''}`} onClick={() => { setMode('select'); setFeedback('Select mode active'); }}>Select</div>
+        <div className={`tool ${mode==='add-node'?'active':''}`} onClick={() => { setMode('add-node'); setFeedback('Click canvas to add nodes'); }}>Add Node</div>
+        <div className={`tool ${mode==='resistor'?'active':''}`} onClick={() => { setMode('resistor'); setFeedback('Click two nodes for resistor'); }}>Add Resistor</div>
+        <div className={`tool ${mode==='voltage'?'active':''}`} onClick={() => { setMode('voltage'); setFeedback('Click two nodes for voltage'); }}>Add Voltage</div>
+        <div className={`tool ${mode==='ground'?'active':''}`} onClick={() => { setMode('ground'); setFeedback('Click node to set ground'); }}>Set Ground</div>
         <hr />
         <button onClick={buildCircuitAndRun} disabled={running}>{running ? 'Running...' : 'Run Simulation'}</button>
         <button onClick={clearAll} className="danger">Clear</button>
@@ -224,7 +250,7 @@ export const CircuitBuilder: React.FC = () => {
                       y={(n1.y + n2.y) / 2 - 18}
                       fontSize={11}
                       fontWeight="bold"
-                      fill="#d9534f"
+                      fill="#000"
                       textAnchor="middle"
                     >
                       {c.value}Ω
@@ -247,7 +273,7 @@ export const CircuitBuilder: React.FC = () => {
                       y={(n1.y + n2.y) / 2 + 5}
                       fontSize={9}
                       fontWeight="bold"
-                      fill="#5cb85c"
+                      fill="#000"
                     >
                       +
                     </text>
@@ -256,7 +282,7 @@ export const CircuitBuilder: React.FC = () => {
                       y={(n1.y + n2.y) / 2 + 5}
                       fontSize={9}
                       fontWeight="bold"
-                      fill="#5cb85c"
+                      fill="#000"
                     >
                       −
                     </text>
@@ -265,7 +291,7 @@ export const CircuitBuilder: React.FC = () => {
                       y={(n1.y + n2.y) / 2 - 20}
                       fontSize={11}
                       fontWeight="bold"
-                      fill="#5cb85c"
+                      fill="#000"
                       textAnchor="middle"
                     >
                       {c.value}V
