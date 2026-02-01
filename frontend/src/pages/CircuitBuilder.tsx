@@ -9,7 +9,7 @@ type Component = {
   x: number;
   y: number;
   value: number; // ohms or volts
-  positiveTerminal?: 'in' | 'out'; // for voltage sources: which terminal is positive (default 'out')
+  positiveTerminal?: 'in' | 'out'; // which terminal is positive (default 'out')
 };
 
 type Wire = {
@@ -169,7 +169,7 @@ export const CircuitBuilder: React.FC = () => {
   const togglePolarity = (compId: number) => {
     setComponents((comps) =>
       comps.map((c) => {
-        if (c.id === compId && c.type === 'voltage') {
+        if (c.id === compId && (c.type === 'voltage' || c.type === 'resistor')) {
           const currentPos = c.positiveTerminal ?? 'out';
           return { ...c, positiveTerminal: currentPos === 'in' ? 'out' : 'in' };
         }
@@ -326,11 +326,14 @@ export const CircuitBuilder: React.FC = () => {
         </div>
         <hr />
         <button onClick={buildCircuitAndRun}>Run Simulation</button>
-        {selectedCompIds.size === 1 && components.find((c) => c.id === Array.from(selectedCompIds)[0])?.type === 'voltage' && (
-          <button onClick={() => togglePolarity(Array.from(selectedCompIds)[0])} className="secondary">
-            Flip Polarity
-          </button>
-        )}
+        {selectedCompIds.size === 1 && (() => {
+          const comp = components.find((c) => c.id === Array.from(selectedCompIds)[0]);
+          return (comp?.type === 'voltage' || comp?.type === 'resistor') ? (
+            <button onClick={() => togglePolarity(Array.from(selectedCompIds)[0])} className="secondary">
+              Flip Polarity
+            </button>
+          ) : null;
+        })()}
         <button onClick={deleteSelected} className="danger" disabled={selectedCompIds.size === 0}>
           Delete Selected ({selectedCompIds.size})
         </button>
@@ -419,6 +422,29 @@ export const CircuitBuilder: React.FC = () => {
                     </text>
                     <text x={comp.x} y={comp.y + 14} fontSize={8} fill="#666" textAnchor="middle" pointerEvents="none">
                       {comp.value}Ω
+                    </text>
+                    {/* Polarity labels */}
+                    <text
+                      x={(comp.positiveTerminal ?? 'out') === 'in' ? terminals.in.x : terminals.out.x}
+                      y={(comp.positiveTerminal ?? 'out') === 'in' ? terminals.in.y - 10 : terminals.out.y - 10}
+                      fontSize={10}
+                      fontWeight="bold"
+                      fill="#d9534f"
+                      textAnchor="middle"
+                      pointerEvents="none"
+                    >
+                      +
+                    </text>
+                    <text
+                      x={(comp.positiveTerminal ?? 'out') === 'in' ? terminals.out.x : terminals.in.x}
+                      y={(comp.positiveTerminal ?? 'out') === 'in' ? terminals.out.y - 10 : terminals.in.y - 10}
+                      fontSize={10}
+                      fontWeight="bold"
+                      fill="#5cb85c"
+                      textAnchor="middle"
+                      pointerEvents="none"
+                    >
+                      −
                     </text>
                   </>
                 )}
