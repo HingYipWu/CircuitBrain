@@ -32,6 +32,7 @@ export const CircuitBuilder: React.FC = () => {
   const [wireStart, setWireStart] = useState<{ compId: number; terminal: 'in' | 'out' } | null>(null);
   const [draggedCompId, setDraggedCompId] = useState<number | null>(null);
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [selectedCompIds, setSelectedCompIds] = useState<Set<number>>(new Set());
   const nextCompId = useRef(3);
   const nextWireId = useRef(0);
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -85,6 +86,25 @@ export const CircuitBuilder: React.FC = () => {
     if (mode !== 'select') return;
     e.stopPropagation();
     
+    // Toggle selection with Ctrl/Cmd
+    if (e.ctrlKey || e.metaKey) {
+      setSelectedCompIds((prev) => {
+        const next = new Set(prev);
+        if (next.has(compId)) {
+          next.delete(compId);
+        } else {
+          next.add(compId);
+        }
+        return next;
+      });
+      return;
+    }
+    
+    // Single click selects only this component
+    if (!selectedCompIds.has(compId)) {
+      setSelectedCompIds(new Set([compId]));
+    }
+    
     const rect = svgRef.current?.getBoundingClientRect();
     if (!rect) return;
     
@@ -106,8 +126,21 @@ export const CircuitBuilder: React.FC = () => {
     const newX = e.clientX - rect.left - dragOffset.x;
     const newY = e.clientY - rect.top - dragOffset.y;
     
+    // If dragging a selected component, move all selected components
+    const toMove = selectedCompIds.has(draggedCompId) ? selectedCompIds : new Set([draggedCompId]);
+    const draggedComp = components.find((c) => c.id === draggedCompId);
+    if (!draggedComp) return;
+    
+    const deltaX = newX - draggedComp.x;
+    const deltaY = newY - draggedComp.y;
+    
     setComponents((comps) =>
-      comps.map((c) => (c.id === draggedCompId ? { ...c, x: newX, y: newY } : c))
+      comps.map((c) => {
+        if (toMove.has(c.id)) {
+          return { ...c, x: c.x + deltaX, y: c.y + deltaY };
+        }
+        return c;
+      })
     );
   };
 
@@ -118,6 +151,29 @@ export const CircuitBuilder: React.FC = () => {
     }
     setDraggedCompId(null);
   };
+
+  const deleteSelected = () => {
+    if (selectedCompIds.size === 0) return;
+    
+    setComponents((comps) => comps.filter((c) => !selectedCompIds.has(c.id)));
+    setWires((ws) =>
+      ws.filter((w) => !selectedCompIds.has(w.fromCompId) && !selectedCompIds.has(w.toCompId))
+    );
+    setFeedback(`Deleted ${selectedCompIds.size} component(s)`);
+    setSelectedCompIds(new Set());
+    setTimeout(() => setFeedback('Ready'), 1500);
+  };
+
+  // Keyboard listener for Delete key
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        deleteSelected();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedCompIds]);
 
   const getComponentTerminals = (comp: Component): { in: { x: number; y: number }; out: { x: number; y: number } } => {
     const w = 40;
@@ -254,8 +310,11 @@ export const CircuitBuilder: React.FC = () => {
         </div>
         <hr />
         <button onClick={buildCircuitAndRun}>Run Simulation</button>
+        <button onClick={deleteSelected} className="danger" disabled={selectedCompIds.size === 0}>
+          Delete Selected ({selectedCompIds.size})
+        </button>
         <button onClick={clearAll} className="danger">
-          Clear
+          Clear All
         </button>
         <hr />
         <div className="legend">
@@ -303,10 +362,11 @@ export const CircuitBuilder: React.FC = () => {
             const w = 40;
             const h = 24;
             const isDragging = draggedCompId === comp.id;
+            const isSelected = selectedCompIds.has(comp.id);
             return (
               <g key={comp.id} onMouseDown={(e) => handleComponentMouseDown(comp.id, e)} style={{ cursor: mode === 'select' ? 'move' : 'default' }}>
                 {/* component body */}
-                <rect x={comp.x - w / 2} y={comp.y - h / 2} width={w} height={h} fill={isDragging ? '#fff9e6' : '#fff'} stroke={isDragging ? '#faad14' : '#333'} strokeWidth={isDragging ? 2 : 1} rx={4} />
+                <rect x={comp.x - w / 2} y={comp.y - h / 2} width={w} height={h} fill={isSelected ? '#e6f7ff' : isDragging ? '#fff9e6' : '#fff'} stroke={isSelected ? '#1890ff' : isDragging ? '#faad14' : '#333'} strokeWidth={isSelected ? 2 : isDragging ? 2 : 1} rx={4} />
 
                 {/* terminals */}
                 <circle
