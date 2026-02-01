@@ -12,13 +12,20 @@ dotenv.config();
 const app: Express = express();
 const prisma = new PrismaClient();
 
-// Determine CORS origin
-const corsOrigin = process.env.FRONTEND_URL || 'http://localhost:5173';
+// Determine allowed CORS origins (comma-separated list)
+const rawFrontend = process.env.FRONTEND_URL || 'http://localhost:5173';
+const allowedOrigins = rawFrontend.split(',').map((s) => s.trim()).filter(Boolean);
 
-// Middleware
-app.use(cors({ 
-  origin: corsOrigin,
-  credentials: true 
+// Middleware - allow requests from allowed origins or from localhost/dev tools
+app.use(cors({
+  origin: (origin, callback) => {
+    // allow non-browser requests (curl, server-to-server) when origin is undefined
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    if (origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1')) return callback(null, true);
+    return callback(new Error('CORS policy: origin not allowed'), false);
+  },
+  credentials: true,
 }));
 app.use(express.json());
 
