@@ -7,14 +7,10 @@
     "dev": "ts-node src/index.ts",
     "build": "tsc --noEmit false",
     "start": "node dist/index.js",
-    "vercel-build": "tsc --noEmit false",
-    "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev",
-    "prisma:studio": "prisma studio",
-    "postinstall": "prisma generate"
+    "vercel-build": "tsc --noEmit false"
   },
   "dependencies": {
-    "@prisma/client": "^5.8.0",
+    
     "express": "^4.18.2",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
@@ -26,7 +22,6 @@
     "@types/node": "^20.10.6",
     "@types/jsonwebtoken": "^9.0.7",
     "typescript": "^5.3.3",
-    "ts-node": "^10.9.2",
-    "prisma": "^5.8.0"
+    "ts-node": "^10.9.2"
   }
 }

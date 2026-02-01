@@ -1,16 +1,13 @@
 import express, { Express, Request, Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-// Do not instantiate PrismaClient at module load; routes will create clients when needed
 import authRoutes from './routes/auth';
 import postRoutes from './routes/posts';
 import testRoutes from './routes/test';
 import simulateRoutes from './routes/simulate';
-
 dotenv.config();
 
 const app: Express = express();
-const prisma = new PrismaClient();
 
 // Determine allowed CORS origins (comma-separated list)
 const rawFrontend = process.env.FRONTEND_URL || 'http://localhost:5173';
@@ -65,8 +62,7 @@ if (process.env.NODE_ENV === 'development') {
   });
 
   // Graceful shutdown for local development
-  process.on('SIGINT', async () => {
-    await prisma.$disconnect();
+  process.on('SIGINT', () => {
     process.exit(0);
   });
 }
