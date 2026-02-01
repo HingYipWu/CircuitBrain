@@ -667,56 +667,50 @@ export const CircuitBuilder: React.FC = () => {
         {/* Simulation Results Section */}
         {simResults && Object.keys(simResults).length > 0 && (
           <div style={{ marginTop: '12px', padding: '10px', backgroundColor: '#e6f7ff', borderRadius: '4px', border: '1px solid #91d5ff' }}>
-            <h4 style={{ color: '#000', marginBottom: '8px', marginTop: '0' }}>Simulation Results</h4>
+            <h4 style={{ color: '#000', marginBottom: '8px', marginTop: '0' }}>⚡ Simulation Results</h4>
             
-            {selectedCompIds.size === 1 && (() => {
-              const compId = Array.from(selectedCompIds)[0];
-              const comp = components.find((c) => c.id === compId);
-              if (!comp) return null;
-              
-              const resultKey = comp.type === 'resistor' ? `resistor_${compId}` : comp.type === 'voltage' ? `voltage_${compId}` : null;
-              const result = resultKey ? simResults[resultKey] : null;
-              
-              return result ? (
-                <div>
-                  <p style={{ color: '#000', margin: '4px 0', fontSize: '12px' }}>
-                    <strong>Voltage:</strong> {result.voltage.toFixed(4)} V
-                  </p>
-                  <p style={{ color: '#000', margin: '4px 0', fontSize: '12px' }}>
-                    <strong>Current:</strong> {result.current.toFixed(6)} A
-                  </p>
-                  <p style={{ color: '#000', margin: '4px 0', fontSize: '12px' }}>
-                    <strong>Current (mA):</strong> {(result.current * 1000).toFixed(4)} mA
-                  </p>
-                  <p style={{ color: '#000', margin: '4px 0', fontSize: '12px' }}>
-                    <strong>Resistance:</strong> {result.resistance.toFixed(2)} Ω
-                  </p>
-                  <p style={{ color: '#000', margin: '4px 0', fontSize: '12px' }}>
-                    <strong>Power:</strong> {(result.voltage * result.current).toFixed(6)} W
-                  </p>
-                </div>
-              ) : (
-                <p style={{ color: '#666', fontSize: '12px', fontStyle: 'italic' }}>
-                  No simulation data for selected component
-                </p>
-              );
-            })()}
-            
-            {selectedCompIds.size === 0 && (
-              <div>
-                <p style={{ color: '#000', margin: '4px 0', fontSize: '11px', fontWeight: 'bold' }}>All Components:</p>
-                {Array.from(Object.entries(simResults)).map(([key, result]) => (
-                  <div key={key} style={{ marginBottom: '8px', paddingBottom: '8px', borderBottom: '1px solid #b3d8ff' }}>
-                    <p style={{ color: '#000', margin: '2px 0', fontSize: '11px' }}>
-                      <strong>{key.replace(/_/g, ' ').toUpperCase()}:</strong>
+            <div>
+              {Array.from(Object.entries(simResults)).map(([key, result]) => {
+                // Extract component ID from key (e.g., "resistor_0" -> 0)
+                const compId = parseInt(key.split('_')[1]);
+                const comp = components.find((c) => c.id === compId);
+                const isSelected = selectedCompIds.has(compId);
+                const typeLabel = comp?.type === 'resistor' ? 'Resistor' : comp?.type === 'voltage' ? 'Voltage Source' : 'Unknown';
+                
+                return (
+                  <div
+                    key={key}
+                    style={{
+                      marginBottom: '8px',
+                      paddingBottom: '8px',
+                      paddingTop: '8px',
+                      paddingLeft: '8px',
+                      paddingRight: '8px',
+                      borderBottom: '1px solid #b3d8ff',
+                      backgroundColor: isSelected ? '#fff7e6' : 'transparent',
+                      borderLeft: isSelected ? '3px solid #faad14' : 'none',
+                      borderRadius: '4px',
+                    }}
+                  >
+                    <p style={{ color: '#000', margin: '2px 0', fontSize: '12px', fontWeight: 'bold' }}>
+                      {typeLabel} {compId} {isSelected && '← Selected'}
                     </p>
-                    <p style={{ color: '#666', margin: '2px 0', fontSize: '10px' }}>
-                      V: {result.voltage.toFixed(4)}V | I: {(result.current * 1000).toFixed(3)}mA | R: {result.resistance.toFixed(2)}Ω
+                    <p style={{ color: '#000', margin: '2px 0', fontSize: '11px' }}>
+                      <strong>Voltage Drop:</strong> {result.voltage.toFixed(4)} V
+                    </p>
+                    <p style={{ color: '#000', margin: '2px 0', fontSize: '11px' }}>
+                      <strong>Current:</strong> {result.current.toFixed(6)} A ({(result.current * 1000).toFixed(4)} mA)
+                    </p>
+                    <p style={{ color: '#000', margin: '2px 0', fontSize: '11px' }}>
+                      <strong>Resistance:</strong> {result.resistance.toFixed(2)} Ω
+                    </p>
+                    <p style={{ color: '#000', margin: '2px 0', fontSize: '11px' }}>
+                      <strong>Power:</strong> {(result.voltage * result.current).toFixed(6)} W
                     </p>
                   </div>
-                ))}
-              </div>
-            )}
+                );
+              })}
+            </div>
           </div>
         )}
       </div>
