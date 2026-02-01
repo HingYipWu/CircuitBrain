@@ -51,6 +51,7 @@
 .cb-sidebar .tool.active { background: #e6f7ff; border-color: #91d5ff; }
 .cb-sidebar button { width: 100%; padding: 8px; margin-top: 8px; color: #000; }
 .cb-sidebar .danger { background: #fff1f0; border-color: #ffa39e; color: #000; }
+.cb-sidebar .secondary { background: #f0f5ff; border-color: #b3d8ff; color: #000; }
 .cb-sidebar .legend { margin-top: 12px; font-size: 13px; }
 .legend-resistor { display:inline-block; width:18px; height:8px; background:#ccc; margin-right:8px }
 .legend-voltage { display:inline-block; width:12px; height:12px; background:#f4cccc; margin-right:8px }

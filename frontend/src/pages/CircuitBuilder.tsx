@@ -9,6 +9,7 @@ type Component = {
   x: number;
   y: number;
   value: number; // ohms or volts
+  positiveTerminal?: 'in' | 'out'; // for voltage sources: which terminal is positive (default 'out')
 };
 
 type Wire = {
@@ -33,6 +34,7 @@ export const CircuitBuilder: React.FC = () => {
   const [draggedCompId, setDraggedCompId] = useState<number | null>(null);
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [selectedCompIds, setSelectedCompIds] = useState<Set<number>>(new Set());
+  const [contextMenuComp, setContextMenuComp] = useState<number | null>(null);
   const nextCompId = useRef(3);
   const nextWireId = useRef(0);
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -161,6 +163,20 @@ export const CircuitBuilder: React.FC = () => {
     );
     setFeedback(`Deleted ${selectedCompIds.size} component(s)`);
     setSelectedCompIds(new Set());
+    setTimeout(() => setFeedback('Ready'), 1500);
+  };
+
+  const togglePolarity = (compId: number) => {
+    setComponents((comps) =>
+      comps.map((c) => {
+        if (c.id === compId && c.type === 'voltage') {
+          const currentPos = c.positiveTerminal ?? 'out';
+          return { ...c, positiveTerminal: currentPos === 'in' ? 'out' : 'in' };
+        }
+        return c;
+      })
+    );
+    setFeedback('Polarity flipped');
     setTimeout(() => setFeedback('Ready'), 1500);
   };
 
@@ -310,6 +326,11 @@ export const CircuitBuilder: React.FC = () => {
         </div>
         <hr />
         <button onClick={buildCircuitAndRun}>Run Simulation</button>
+        {selectedCompIds.size === 1 && components.find((c) => c.id === Array.from(selectedCompIds)[0])?.type === 'voltage' && (
+          <button onClick={() => togglePolarity(Array.from(selectedCompIds)[0])} className="secondary">
+            Flip Polarity
+          </button>
+        )}
         <button onClick={deleteSelected} className="danger" disabled={selectedCompIds.size === 0}>
           Delete Selected ({selectedCompIds.size})
         </button>
@@ -408,6 +429,29 @@ export const CircuitBuilder: React.FC = () => {
                     </text>
                     <text x={comp.x} y={comp.y + 14} fontSize={8} fill="#666" textAnchor="middle" pointerEvents="none">
                       {comp.value}V
+                    </text>
+                    {/* Polarity labels */}
+                    <text
+                      x={(comp.positiveTerminal ?? 'out') === 'in' ? terminals.in.x : terminals.out.x}
+                      y={(comp.positiveTerminal ?? 'out') === 'in' ? terminals.in.y - 10 : terminals.out.y - 10}
+                      fontSize={10}
+                      fontWeight="bold"
+                      fill="#d9534f"
+                      textAnchor="middle"
+                      pointerEvents="none"
+                    >
+                      +
+                    </text>
+                    <text
+                      x={(comp.positiveTerminal ?? 'out') === 'in' ? terminals.out.x : terminals.in.x}
+                      y={(comp.positiveTerminal ?? 'out') === 'in' ? terminals.out.y - 10 : terminals.in.y - 10}
+                      fontSize={10}
+                      fontWeight="bold"
+                      fill="#5cb85c"
+                      textAnchor="middle"
+                      pointerEvents="none"
+                    >
+                      −
                     </text>
                   </>
                 )}
