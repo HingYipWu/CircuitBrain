@@ -560,16 +560,98 @@ export const CircuitBuilder: React.FC = () => {
           if (!comp) return null;
           
           const typeLabel = comp.type === 'resistor' ? 'Resistor' : comp.type === 'voltage' ? 'Voltage Source' : 'Ground';
-          const valueLabel = comp.type === 'resistor' ? `${comp.value} Ω` : comp.type === 'voltage' ? `${comp.value} V` : 'Reference';
+          const isEditing = editingCompId === compId;
           
           return (
             <div style={{ marginTop: '12px', padding: '10px', backgroundColor: '#f0f5ff', borderRadius: '4px', border: '1px solid #b3d8ff' }}>
               <h4 style={{ color: '#000', marginBottom: '8px', marginTop: '0' }}>
                 {typeLabel} (ID: {compId})
               </h4>
-              <p style={{ color: '#000', margin: '4px 0', fontSize: '12px' }}>
-                <strong>Value:</strong> {valueLabel}
-              </p>
+              
+              {/* Value Field - Editable for resistor and voltage */}
+              {(comp.type === 'resistor' || comp.type === 'voltage') && (
+                <div style={{ marginBottom: '8px' }}>
+                  {isEditing ? (
+                    <div>
+                      <label style={{ color: '#000', fontSize: '12px', display: 'block', marginBottom: '4px' }}>
+                        <strong>{comp.type === 'resistor' ? 'Resistance (Ω)' : 'Voltage (V)'}</strong>
+                      </label>
+                      <input
+                        type="number"
+                        value={editingValue}
+                        onChange={(e) => setEditingValue(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '6px',
+                          marginBottom: '6px',
+                          border: '1px solid #91d5ff',
+                          borderRadius: '4px',
+                          fontSize: '12px',
+                          boxSizing: 'border-box',
+                        }}
+                        autoFocus
+                      />
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <button
+                          onClick={saveComponentValue}
+                          style={{
+                            flex: 1,
+                            padding: '6px',
+                            backgroundColor: '#52c41a',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontSize: '11px',
+                            fontWeight: 'bold',
+                          }}
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={cancelEditing}
+                          style={{
+                            flex: 1,
+                            padding: '6px',
+                            backgroundColor: '#f5222d',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontSize: '11px',
+                            fontWeight: 'bold',
+                          }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p
+                      style={{
+                        color: '#000',
+                        margin: '4px 0',
+                        fontSize: '12px',
+                        cursor: 'pointer',
+                        padding: '6px',
+                        backgroundColor: '#fff',
+                        borderRadius: '4px',
+                        border: '1px dashed #91d5ff',
+                      }}
+                      onClick={() => startEditingValue(compId, comp.value)}
+                    >
+                      <strong>{comp.type === 'resistor' ? 'Resistance' : 'Voltage'}:</strong> {comp.value} {comp.type === 'resistor' ? 'Ω' : 'V'} <span style={{ fontSize: '10px', color: '#666' }}>(click to edit)</span>
+                    </p>
+                  )}
+                </div>
+              )}
+              
+              {comp.type === 'ground' && (
+                <p style={{ color: '#000', margin: '4px 0', fontSize: '12px' }}>
+                  <strong>Type:</strong> Ground Reference
+                </p>
+              )}
+              
               <p style={{ color: '#000', margin: '4px 0', fontSize: '12px' }}>
                 <strong>Position:</strong> ({Math.round(comp.x)}, {Math.round(comp.y)})
               </p>
