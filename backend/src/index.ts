@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import { PrismaClient } from '@prisma/client';
 import authRoutes from './routes/auth';
 import postRoutes from './routes/posts';
+import testRoutes from './routes/test';
 
 dotenv.config();
 
@@ -21,6 +22,7 @@ app.use(cors({
 app.use(express.json());
 
 // Routes
+app.use('/api/test', testRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/posts', postRoutes);
 
@@ -45,3 +47,4 @@ if (process.env.NODE_ENV === 'development') {
 
 // Export for Vercel serverless functions
 export default app;
+

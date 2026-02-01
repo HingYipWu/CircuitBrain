@@ -5,6 +5,7 @@ import { Navbar } from './components/Navbar';
 import { Home } from './pages/Home';
 import { Login, Signup } from './pages/Auth';
 import { CreatePost } from './pages/CreatePost';
+import { TestConnection } from './pages/TestConnection';
 import './App.css';
 
 function App() {
@@ -17,6 +18,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/posts" element={<CreatePost />} />
+          <Route path="/test" element={<TestConnection />} />
         </Routes>
       </AuthProvider>
     </Router>
